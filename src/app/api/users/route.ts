@@ -3,6 +3,7 @@ import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { session } from "@/lib/auth";
+import { audit } from "@/lib/audit";
 export const dynamic = "force-dynamic";
 const schema = z.object({
   email: z.string().email(), name: z.string().min(1),
@@ -23,6 +24,7 @@ export async function POST(req: Request) {
   try {
     const d = schema.parse(await req.json());
     await db.user.create({ data: { ...d, email: d.email.toLowerCase(), password: await bcrypt.hash(d.password, 10) } });
+    await audit(s, "CREATE", "User", d.email.toLowerCase() + " (" + d.role + ")");
     return NextResponse.json({ ok: true });
   } catch (e: any) {
     return NextResponse.json({ error: e.code === "P2002" ? "Email already exists" : "Invalid data (password min 6)" }, { status: 400 });

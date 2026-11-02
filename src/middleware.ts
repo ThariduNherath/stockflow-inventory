@@ -10,4 +10,6 @@ export async function middleware(req: NextRequest) {
       : NextResponse.redirect(new URL("/login", req.url));
   }
 }
-export const config = { matcher: ["/((?!login|api/auth|api/health|_next|favicon.ico).*)"] };
+export const config = {
+  matcher: ["/((?!login|forgot|reset|api/auth|api/health|_next|favicon.ico|sw.js|manifest.webmanifest|icon-|offline.html).*)"],
+};

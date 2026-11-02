@@ -20,17 +20,24 @@ enum OrderStatus {
   PAID
   CANCELLED
 }
+enum POStatus {
+  ORDERED
+  RECEIVED
+  CANCELLED
+}
 model User {
-  id         String      @id @default(cuid())
-  email      String      @unique
+  id         String          @id @default(cuid())
+  email      String          @unique
   name       String
   password   String
-  role       Role        @default(STAFF)
-  active     Boolean     @default(true)
-  mustChange Boolean     @default(false)
+  role       Role            @default(STAFF)
+  active     Boolean         @default(true)
+  mustChange Boolean         @default(false)
   moves      StockMove[]
   orders     Order[]
-  createdAt  DateTime    @default(now())
+  purchases  PurchaseOrder[]
+  resets     PasswordReset[]
+  createdAt  DateTime        @default(now())
 }
 model Category {
   id       String    @id @default(cuid())
@@ -38,29 +45,31 @@ model Category {
   products Product[]
 }
 model Supplier {
-  id        String    @id @default(cuid())
+  id        String          @id @default(cuid())
   name      String
   phone     String?
   email     String?
   address   String?
   products  Product[]
-  createdAt DateTime  @default(now())
+  purchases PurchaseOrder[]
+  createdAt DateTime        @default(now())
 }
 model Product {
-  id         String      @id @default(cuid())
-  sku        String      @unique
-  name       String
-  price      Decimal     @db.Decimal(10, 2)
-  qty        Int         @default(0)
-  minQty     Int         @default(5)
-  image      String?
-  categoryId String?
-  category   Category?   @relation(fields: [categoryId], references: [id])
-  supplierId String?
-  supplier   Supplier?   @relation(fields: [supplierId], references: [id], onDelete: SetNull)
-  moves      StockMove[]
-  orderItems OrderItem[]
-  createdAt  DateTime    @default(now())
+  id            String         @id @default(cuid())
+  sku           String         @unique
+  name          String
+  price         Decimal        @db.Decimal(10, 2)
+  qty           Int            @default(0)
+  minQty        Int            @default(5)
+  image         String?
+  categoryId    String?
+  category      Category?      @relation(fields: [categoryId], references: [id])
+  supplierId    String?
+  supplier      Supplier?      @relation(fields: [supplierId], references: [id], onDelete: SetNull)
+  moves         StockMove[]
+  orderItems    OrderItem[]
+  purchaseItems PurchaseItem[]
+  createdAt     DateTime       @default(now())
 }
 model StockMove {
   id        String   @id @default(cuid())
@@ -73,16 +82,27 @@ model StockMove {
   user      User     @relation(fields: [userId], references: [id])
   createdAt DateTime @default(now())
 }
+model Customer {
+  id        String   @id @default(cuid())
+  name      String
+  phone     String?
+  email     String?
+  address   String?
+  orders    Order[]
+  createdAt DateTime @default(now())
+}
 model Order {
-  id        String      @id @default(cuid())
-  no        Int         @unique @default(autoincrement())
-  customer  String
-  status    OrderStatus @default(PENDING)
-  total     Decimal     @db.Decimal(12, 2)
-  userId    String
-  user      User        @relation(fields: [userId], references: [id])
-  items     OrderItem[]
-  createdAt DateTime    @default(now())
+  id          String      @id @default(cuid())
+  no          Int         @unique @default(autoincrement())
+  customer    String
+  customerId  String?
+  customerRef Customer?   @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  status      OrderStatus @default(PENDING)
+  total       Decimal     @db.Decimal(12, 2)
+  userId      String
+  user        User        @relation(fields: [userId], references: [id])
+  items       OrderItem[]
+  createdAt   DateTime    @default(now())
 }
 model OrderItem {
   id        String   @id @default(cuid())
@@ -93,4 +113,46 @@ model OrderItem {
   name      String
   price     Decimal  @db.Decimal(10, 2)
   qty       Int
+}
+model PurchaseOrder {
+  id         String         @id @default(cuid())
+  no         Int            @unique @default(autoincrement())
+  supplierId String
+  supplier   Supplier       @relation(fields: [supplierId], references: [id])
+  status     POStatus       @default(ORDERED)
+  total      Decimal        @db.Decimal(12, 2)
+  note       String?
+  userId     String
+  user       User           @relation(fields: [userId], references: [id])
+  items      PurchaseItem[]
+  receivedAt DateTime?
+  createdAt  DateTime       @default(now())
+}
+model PurchaseItem {
+  id        String        @id @default(cuid())
+  poId      String
+  po        PurchaseOrder @relation(fields: [poId], references: [id], onDelete: Cascade)
+  productId String?
+  product   Product?      @relation(fields: [productId], references: [id], onDelete: SetNull)
+  name      String
+  cost      Decimal       @db.Decimal(10, 2)
+  qty       Int
+}
+model PasswordReset {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String   @unique
+  expires   DateTime
+  createdAt DateTime @default(now())
+}
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  userName  String
+  action    String
+  entity    String
+  detail    String?
+  createdAt DateTime @default(now())
+  @@index([createdAt])
 }

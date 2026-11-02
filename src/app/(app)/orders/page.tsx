@@ -1,18 +1,15 @@
 "use client";
 import { useEffect, useState } from "react";
-import { Plus, ShoppingCart, Trash2, ChevronDown, Check, Ban, Clock, Loader2 } from "lucide-react";
+import { Plus, ShoppingCart, Trash2, ChevronDown, Check, Ban, Clock, Loader2, FileText } from "lucide-react";
 import { toast } from "@/components/Toast";
 import Modal from "@/components/Modal";
 const money = (n: any) => "$" + Number(n).toFixed(2);
-const badge: any = {
-  PENDING: "bg-amber-500/20 text-amber-300",
-  PAID: "bg-emerald-500/20 text-emerald-300",
-  CANCELLED: "bg-rose-500/20 text-rose-300",
-};
+const badge: any = { PENDING: "bg-amber-500/20 text-amber-300", PAID: "bg-emerald-500/20 text-emerald-300", CANCELLED: "bg-rose-500/20 text-rose-300" };
 const filters = [["", "All"], ["PENDING", "Pending"], ["PAID", "Paid"], ["CANCELLED", "Cancelled"]];
 export default function Orders() {
   const [orders, setOrders] = useState<any[]>([]);
   const [products, setProducts] = useState<any[]>([]);
+  const [customers, setCustomers] = useState<any[]>([]);
   const [role, setRole] = useState("STAFF");
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("");
@@ -24,9 +21,10 @@ export default function Orders() {
     fetch("/api/orders?status=" + filter).then((r) => r.json()).then((d) => { setOrders(d.items || []); setRole(d.role); setLoading(false); });
   useEffect(() => { load(); }, [filter]);
   const openForm = async () => {
-    const d = await fetch("/api/products").then((r) => r.json());
-    setProducts((d.items || []).filter((p: any) => p.qty > 0));
-    setErr(""); setForm({ customer: "", paid: false, lines: [] });
+    const [p, c] = await Promise.all([fetch("/api/products").then((r) => r.json()), fetch("/api/customers").then((r) => r.json())]);
+    setProducts((p.items || []).filter((x: any) => x.qty > 0));
+    setCustomers(c.items || []);
+    setErr(""); setForm({ customerId: "", customer: "", paid: false, lines: [] });
   };
   const total = form ? form.lines.reduce((a: number, l: any) => a + Number(l.p.price) * l.qty, 0) : 0;
   const setQty = (id: string, q: number) =>
@@ -36,7 +34,7 @@ export default function Orders() {
     setBusy(true); setErr("");
     const r = await fetch("/api/orders", {
       method: "POST",
-      body: JSON.stringify({ customer: form.customer, paid: form.paid, items: form.lines.map((l: any) => ({ productId: l.p.id, qty: l.qty })) }),
+      body: JSON.stringify({ customerId: form.customerId, customer: form.customer, paid: form.paid, items: form.lines.map((l: any) => ({ productId: l.p.id, qty: l.qty })) }),
     });
     const j = await r.json().catch(() => ({}));
     setBusy(false);
@@ -88,18 +86,17 @@ export default function Orders() {
                       <span>{money(Number(it.price) * it.qty)}</span>
                     </div>
                   ))}
-                  {o.status !== "CANCELLED" && (
-                    <div className="flex flex-wrap gap-2 pt-2">
-                      {o.status === "PENDING" ? (
-                        <button className="chip flex items-center gap-1 !text-emerald-300" onClick={() => setStatus(o.id, "PAID")}><Check size={14} />Mark paid</button>
-                      ) : (
-                        <button className="chip flex items-center gap-1 !text-amber-300" onClick={() => setStatus(o.id, "PENDING")}><Clock size={14} />Mark pending</button>
-                      )}
-                      {role !== "STAFF" && (
-                        <button className="chip flex items-center gap-1 !text-rose-300" onClick={() => confirm("Cancel order #" + o.no + "? Stock will be restored.") && setStatus(o.id, "CANCELLED")}><Ban size={14} />Cancel</button>
-                      )}
-                    </div>
-                  )}
+                  <div className="flex flex-wrap gap-2 pt-2">
+                    <a className="chip flex items-center gap-1" href={"/invoice/" + o.id} target="_blank" rel="noreferrer"><FileText size={14} />Invoice</a>
+                    {o.status !== "CANCELLED" && (o.status === "PENDING" ? (
+                      <button className="chip flex items-center gap-1 !text-emerald-300" onClick={() => setStatus(o.id, "PAID")}><Check size={14} />Mark paid</button>
+                    ) : (
+                      <button className="chip flex items-center gap-1 !text-amber-300" onClick={() => setStatus(o.id, "PENDING")}><Clock size={14} />Mark pending</button>
+                    ))}
+                    {o.status !== "CANCELLED" && role !== "STAFF" && (
+                      <button className="chip flex items-center gap-1 !text-rose-300" onClick={() => confirm("Cancel order #" + o.no + "? Stock will be restored.") && setStatus(o.id, "CANCELLED")}><Ban size={14} />Cancel</button>
+                    )}
+                  </div>
                 </div>
               )}
             </div>
@@ -110,7 +107,12 @@ export default function Orders() {
       {form && (
         <Modal title="New order" close={() => setForm(null)}>
           <div><label className="text-xs text-slate-400">Customer</label>
-            <input className="inp" placeholder="Walk-in" value={form.customer} onChange={(e) => setForm({ ...form, customer: e.target.value })} /></div>
+            <select className="inp bg-slate-900" value={form.customerId} onChange={(e) => setForm({ ...form, customerId: e.target.value })}>
+              <option value="">- Walk-in / type name -</option>
+              {customers.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+            {!form.customerId && <input className="inp mt-2" placeholder="Customer name (optional)" value={form.customer} onChange={(e) => setForm({ ...form, customer: e.target.value })} />}
+          </div>
           <div><label className="text-xs text-slate-400">Add product</label>
             <select className="inp bg-slate-900" value="" onChange={(e) => {
               const p = products.find((x) => x.id === e.target.value);

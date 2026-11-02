@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { db } from "@/lib/db";
 import { session } from "@/lib/auth";
+import { audit } from "@/lib/audit";
 export const dynamic = "force-dynamic";
 export async function GET() {
   const s = await session();
@@ -20,5 +21,6 @@ export async function POST(req: Request) {
   if (!u || !(await bcrypt.compare(current, u.password)))
     return NextResponse.json({ error: "Current password is incorrect" }, { status: 400 });
   await db.user.update({ where: { id: u.id }, data: { password: await bcrypt.hash(next, 10), mustChange: false } });
+  await audit(s, "PASSWORD", "User", "Changed own password");
   return NextResponse.json({ ok: true });
 }

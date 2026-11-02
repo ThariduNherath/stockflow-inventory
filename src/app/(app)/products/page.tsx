@@ -1,27 +1,44 @@
 "use client";
-import { useEffect, useState } from "react";
-import { Plus, Search, Pencil, Trash2, ArrowDownUp, X, PackageOpen, AlertTriangle, Truck } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
+import { Plus, Search, Pencil, Trash2, ArrowDownUp, ArrowUpDown, PackageOpen, AlertTriangle, Truck } from "lucide-react";
 import { toast } from "@/components/Toast";
 import Modal from "@/components/Modal";
+import Pager from "@/components/Pager";
 type P = { id: string; sku: string; name: string; price: string; qty: number; minQty: number; image: string | null; supplierId: string | null; category: { name: string } | null; supplier: { id: string; name: string } | null };
 const empty = { sku: "", name: "", price: "", qty: "0", minQty: "5", category: "", image: "", supplierId: "" };
+const sorts = [["new", "Newest"], ["name", "Name"], ["price", "Price"], ["qty", "Stock"]];
 export default function Products() {
   const [items, setItems] = useState<P[]>([]);
+  const [cats, setCats] = useState<string[]>([]);
+  const [total, setTotal] = useState(0);
+  const [pages, setPages] = useState(1);
+  const [page, setPage] = useState(1);
   const [suppliers, setSuppliers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [role, setRole] = useState("STAFF");
   const [q, setQ] = useState("");
   const [cat, setCat] = useState("");
   const [low, setLow] = useState(false);
+  const [sort, setSort] = useState("new");
+  const [dir, setDir] = useState("desc");
   const [form, setForm] = useState<any>(null);
   const [stock, setStock] = useState<any>(null);
   const [err, setErr] = useState("");
-  const load = () => fetch("/api/products?q=" + encodeURIComponent(q)).then((r) => r.json()).then((d) => { setItems(d.items || []); setRole(d.role); setLoading(false); });
-  useEffect(() => { load(); }, [q]);
+  const rid = useRef(0);
+  const load = () => {
+    const id = ++rid.current;
+    const u = `/api/products?page=${page}&size=12&q=${encodeURIComponent(q)}&cat=${encodeURIComponent(cat)}&low=${low ? 1 : 0}&sort=${sort}&dir=${dir}`;
+    return fetch(u).then((r) => r.json()).then((d) => {
+      if (id !== rid.current) return;
+      if ((d.items || []).length === 0 && page > 1) return setPage(page - 1);
+      setItems(d.items || []); setTotal(d.total || 0); setPages(d.pages || 1); setCats(d.cats || []); setRole(d.role); setLoading(false);
+    });
+  };
+  useEffect(() => { load(); }, [q, cat, low, sort, dir, page]);
   useEffect(() => { fetch("/api/suppliers").then((r) => r.json()).then((d) => setSuppliers(d.items || [])); }, []);
   const can = role !== "STAFF";
-  const cats = Array.from(new Set(items.map((p) => p.category?.name).filter(Boolean))) as string[];
-  const shown = items.filter((p) => (!cat || p.category?.name === cat) && (!low || p.qty <= p.minQty));
+  const chSort = (v: string) => { setSort(v); setDir(v === "name" ? "asc" : "desc"); setPage(1); };
   const call = async (url: string, method: string, body: any, done: () => void, msg: string) => {
     const r = await fetch(url, { method, body: body && JSON.stringify(body) });
     const j = await r.json().catch(() => ({}));
@@ -43,25 +60,31 @@ export default function Products() {
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap gap-3 items-center justify-between">
-        <h2 className="text-2xl md:text-3xl font-bold">Products <span className="text-slate-500 text-lg">({shown.length})</span></h2>
+        <h2 className="text-2xl md:text-3xl font-bold">Products <span className="text-slate-500 text-lg">({total})</span></h2>
         <div className="flex gap-2 w-full sm:w-auto">
           <div className="relative flex-1"><Search size={16} className="absolute left-3 top-3.5 text-slate-400" />
-            <input className="inp pl-9" placeholder="Search name or SKU..." value={q} onChange={(e) => setQ(e.target.value)} /></div>
+            <input className="inp pl-9" placeholder="Search name or SKU..." value={q} onChange={(e) => { setQ(e.target.value); setPage(1); }} /></div>
           {can && <button className="btn hidden sm:flex items-center gap-1" onClick={() => { setErr(""); setForm(empty); }}><Plus size={18} />Add</button>}
         </div>
       </div>
-      <div className="flex gap-2 overflow-x-auto pb-1">
-        <button className={`chip ${!cat && !low ? "chip-on" : ""}`} onClick={() => { setCat(""); setLow(false); }}>All</button>
-        <button className={`chip flex items-center gap-1 ${low ? "chip-on" : ""}`} onClick={() => setLow(!low)}><AlertTriangle size={14} />Low stock</button>
-        {cats.map((c) => <button key={c} className={`chip ${cat === c ? "chip-on" : ""}`} onClick={() => setCat(cat === c ? "" : c)}>{c}</button>)}
+      <div className="flex flex-wrap gap-2 items-center">
+        <div className="flex gap-2 overflow-x-auto pb-1 flex-1 min-w-0">
+          <button className={`chip ${!cat && !low ? "chip-on" : ""}`} onClick={() => { setCat(""); setLow(false); setPage(1); }}>All</button>
+          <button className={`chip flex items-center gap-1 ${low ? "chip-on" : ""}`} onClick={() => { setLow(!low); setPage(1); }}><AlertTriangle size={14} />Low stock</button>
+          {cats.map((c) => <button key={c} className={`chip ${cat === c ? "chip-on" : ""}`} onClick={() => { setCat(cat === c ? "" : c); setPage(1); }}>{c}</button>)}
+        </div>
+        <select className="inp !w-auto bg-slate-900 !py-1.5 text-sm" value={sort} onChange={(e) => chSort(e.target.value)}>
+          {sorts.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+        </select>
+        <button className="chip flex items-center gap-1" onClick={() => { setDir(dir === "asc" ? "desc" : "asc"); setPage(1); }}><ArrowUpDown size={14} />{dir === "asc" ? "Asc" : "Desc"}</button>
       </div>
       {loading ? (
         <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-4">{[1, 2, 3, 4, 5, 6].map((i) => <div key={i} className="sk h-36" />)}</div>
-      ) : shown.length === 0 ? (
+      ) : items.length === 0 ? (
         <div className="glass p-10 text-center text-slate-400"><PackageOpen size={48} className="mx-auto mb-3" />No products found</div>
       ) : (
         <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-4">
-          {shown.map((p, i) => {
+          {items.map((p, i) => {
             const isLow = p.qty <= p.minQty;
             const pct = Math.min(100, (p.qty / Math.max(p.minQty * 3, 1)) * 100);
             return (
@@ -71,7 +94,7 @@ export default function Products() {
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex justify-between gap-2">
-                    <p className="font-semibold truncate">{p.name}</p>
+                    <Link href={"/products/" + p.id} className="font-semibold truncate hover:text-indigo-300">{p.name}</Link>
                     <p className="font-semibold text-indigo-300">${Number(p.price).toFixed(2)}</p>
                   </div>
                   <p className="text-xs text-slate-400">{p.sku} &middot; {p.category?.name || "-"}</p>
@@ -89,6 +112,7 @@ export default function Products() {
           })}
         </div>
       )}
+      <Pager page={page} pages={pages} set={(n) => { setPage(n); window.scrollTo({ top: 0, behavior: "smooth" }); }} />
       {can && <button onClick={() => { setErr(""); setForm(empty); }} className="sm:hidden fixed right-5 bottom-24 z-40 w-14 h-14 rounded-full btn !p-0 grid place-items-center shadow-2xl"><Plus size={26} /></button>}
       {form && (
         <Modal title={form.id ? "Edit product" : "New product"} close={() => setForm(null)}>

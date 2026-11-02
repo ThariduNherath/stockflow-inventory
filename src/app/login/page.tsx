@@ -1,10 +1,11 @@
 "use client";
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Boxes, Eye, EyeOff, Loader2 } from "lucide-react";
 export default function Login() {
   const r = useRouter();
-  const [f, setF] = useState({ email: "admin@demo.com", password: "admin123" });
+  const [f, setF] = useState({ email: "", password: "" });
   const [err, setErr] = useState("");
   const [show, setShow] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -30,6 +31,7 @@ export default function Login() {
         <button className="btn w-full flex justify-center items-center gap-2" disabled={busy} onClick={submit}>
           {busy && <Loader2 size={18} className="animate-spin" />}Sign in
         </button>
+        <Link href="/forgot" className="block text-center text-sm text-slate-400 hover:text-white">Forgot password?</Link>
       </div>
     </div>
   );
