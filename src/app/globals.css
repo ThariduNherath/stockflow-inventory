@@ -1,27 +1,25 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
-body {
-  color: var(--foreground);
-  background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
-}
-
-@layer utilities {
-  .text-balance {
-    text-wrap: balance;
-  }
+body { @apply bg-slate-950 text-slate-100 min-h-screen overflow-x-hidden; }
+body::before, body::after { content: ""; position: fixed; z-index: -1; width: 50vmax; height: 50vmax; border-radius: 50%; filter: blur(90px); opacity: .35; animation: float 18s ease-in-out infinite alternate; }
+body::before { background: #6366f1; top: -15vmax; left: -10vmax; }
+body::after { background: #ec4899; bottom: -15vmax; right: -10vmax; animation-delay: -9s; }
+@keyframes float { to { transform: translate(8vmax, 6vmax) scale(1.15); } }
+@keyframes up { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: none; } }
+@keyframes sheet { from { transform: translateY(40px); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes shimmer { to { background-position: -200% 0; } }
+@keyframes toastin { from { transform: translateX(100%); opacity: 0; } to { transform: none; opacity: 1; } }
+@layer components {
+  .up { animation: up .5s both; }
+  .sheet { animation: sheet .3s ease-out; }
+  .glass { @apply bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl; }
+  .card { @apply glass transition duration-300 hover:-translate-y-1 hover:border-indigo-400/50; }
+  .card:hover { box-shadow: 0 12px 40px -12px rgba(99,102,241,.55); }
+  .inp { @apply w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 outline-none transition focus:border-indigo-400 focus:bg-white/10; }
+  .btn { @apply px-4 py-2.5 rounded-xl bg-gradient-to-r from-indigo-500 to-fuchsia-500 font-medium transition hover:opacity-90 hover:shadow-lg active:scale-95 disabled:opacity-50; }
+  .chip { @apply px-3 py-1.5 rounded-full border border-white/10 text-sm whitespace-nowrap transition hover:bg-white/10 active:scale-95; }
+  .chip-on { @apply bg-indigo-500/30 border-indigo-400; }
+  .sk { background: linear-gradient(90deg, rgba(255,255,255,.05) 25%, rgba(255,255,255,.14) 50%, rgba(255,255,255,.05) 75%); background-size: 200% 100%; animation: shimmer 1.4s infinite; border-radius: 1rem; }
+  .grad-text { @apply bg-gradient-to-r from-indigo-400 to-fuchsia-400 bg-clip-text text-transparent; }
 }
